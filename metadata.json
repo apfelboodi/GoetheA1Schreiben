@@ -1,0 +1,5 @@
+{
+  "name": "Goethe A1 Schreiben",
+  "description": "An interactive web application to practice the 'Schreiben' (writing) section of the Goethe-Institut A1 German language exam, based on the official sample paper.",
+  "requestFramePermissions": []
+}
