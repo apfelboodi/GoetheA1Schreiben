@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import Teil1 from './components/Teil1';
 import Teil2 from './components/Teil2';
@@ -22,6 +22,24 @@ const App: React.FC = () => {
   const [teil2Feedback, setTeil2Feedback] = useState<Teil2Feedback | null>(null);
   const [score, setScore] = useState<Score | null>(null);
 
+  const [userApiKey, setUserApiKey] = useState<string>('');
+  const [isApiReady, setIsApiReady] = useState<boolean>(false);
+
+  useEffect(() => {
+    const envApiKey = (typeof process !== 'undefined' && process.env && process.env.API_KEY) ? process.env.API_KEY : null;
+    if (envApiKey) {
+      setUserApiKey(envApiKey);
+      setIsApiReady(true);
+      return;
+    }
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) {
+      setUserApiKey(savedKey);
+      setIsApiReady(true);
+    }
+  }, []);
+
+
   const checkApproximateAnswer = (userAnswer: string, correctValues: string[], isSubstring?: boolean) => {
     const formattedUserAnswer = userAnswer.trim().toLowerCase();
     if (!formattedUserAnswer) return false;
@@ -39,7 +57,6 @@ const App: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // --- Teil 1 Evaluation (max 5 points, 1 per answer) ---
     const results: Teil1Results = {
       anzahlPersonen: checkApproximateAnswer(teil1Answers.anzahlPersonen, ['4', 'vier']),
       davonKinder: checkApproximateAnswer(teil1Answers.davonKinder, ['2', 'zwei']),
@@ -50,21 +67,20 @@ const App: React.FC = () => {
     setTeil1Results(results);
     const teil1Score = Object.values(results).filter(Boolean).length * 1;
 
-    // --- Teil 2 AI Evaluation (max 10 points) ---
     let teil2Score = 0;
     let feedback: Teil2Feedback = { persian: "خطا در تحلیل متن." };
     
+    const apiKey = userApiKey;
+    if (!apiKey) {
+        setIsLoading(false);
+        setTeil2Feedback({ persian: "کلید API برای ارزیابی مورد نیاز است. لطفاً صفحه را رفرش کرده و کلید خود را وارد کنید." });
+        // We set score to something to trigger the results view
+        setScore({ teil1: teil1Score, teil2: 0, total: teil1Score, maxPoints: 15, percentage: Math.round((teil1Score/15)*100), passed: false });
+        setIsSubmitted(true);
+        return;
+    }
+    
     try {
-      let apiKey;
-      // This check is to safely access the environment variable, which doesn't exist in a plain browser environment.
-      if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-        apiKey = process.env.API_KEY;
-      }
-
-      if (!apiKey) {
-        throw new Error("API_KEY not found.");
-      }
-
       const ai = new GoogleGenAI({ apiKey });
       
       const combinedPrompt = `
@@ -74,25 +90,18 @@ const App: React.FC = () => {
         ${teil2Answer}
         ---
         The task was: "You want to visit Dresden in August. Write to the tourist information office. - Why are you writing? - Ask for: Information about films, museums, etc. (cultural program). - Ask about: Hotel addresses?"
-
         Your task is to provide a score, constructive feedback, and a model answer. The output must be a single, valid JSON object with three keys: "score", "persianFeedback", and "musterbrief".
-
         1.  "score": An integer score from 0 to 10 based on official A1 criteria (task fulfillment, salutation/closing, grammar).
-        
         2.  "persianFeedback": Constructive feedback in well-structured Persian paragraphs. Do NOT start with a greeting. Do NOT use asterisks (*).
-        
         3.  "musterbrief": A standard, correct German letter that perfectly answers the prompt, serving as a model answer.
       `;
 
       const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: combinedPrompt });
-      let responseText = response.text.trim();
-      responseText = responseText.replace(/^```json\s*/, '').replace(/```$/, '');
+      let responseText = response.text.trim().replace(/^```json\s*/, '').replace(/```$/, '');
       
       try {
           const parsedData = JSON.parse(responseText);
-          
           teil2Score = parsedData.score || 0;
-
           let finalFeedback: Teil2Feedback = { persian: "بازخورد دریافت نشد." };
           if (parsedData.persianFeedback) {
               finalFeedback.persian = parsedData.persianFeedback.replace(/\*/g, '');
@@ -101,7 +110,6 @@ const App: React.FC = () => {
               finalFeedback.musterbrief = parsedData.musterbrief;
           }
           feedback = finalFeedback;
-          
       } catch (parseError) {
           console.error("Failed to parse combined JSON from AI:", parseError, "Raw text:", responseText);
           feedback = { persian: "خطا در پردازش پاسخ هوش مصنوعی. لطفا دوباره تلاش کنید." };
@@ -110,42 +118,22 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error("Error during AI evaluation:", error);
-      if (error instanceof Error && error.message === "API_KEY not found.") {
-        feedback = { persian: "کلید API یافت نشد. این برنامه برای ارزیابی به کلید API گوگل نیاز دارد. هنگام دیپلوی روی Vercel، حتماً آن را به عنوان یک Environment Variable تنظیم کنید." };
-      } else {
-        feedback = { persian: "خطا در ارتباط با سرویس هوش مصنوعی. لطفاً از صحت کلید API و اتصال اینترنت خود اطمینان حاصل کنید." };
-      }
+      feedback = { persian: "خطا در ارتباط با سرویس هوش مصنوعی. لطفاً از صحت کلید API و اتصال اینترنت خود اطمینان حاصل کنید. اگر کلید را به تازگی وارد کرده اید، ممکن است نامعتبر باشد." };
       setTeil2Feedback(feedback);
     }
 
-
-    // --- Final Score Calculation (max 15 points) ---
     const totalScore = teil1Score + teil2Score;
     const maxPoints = 15;
     const percentage = Math.round((totalScore / maxPoints) * 100);
     const passed = percentage >= 60;
-
-    setScore({
-      teil1: teil1Score,
-      teil2: teil2Score,
-      total: totalScore,
-      maxPoints,
-      percentage,
-      passed
-    });
+    setScore({ teil1: teil1Score, teil2: teil2Score, total: totalScore, maxPoints, percentage, passed });
 
     setIsSubmitted(true);
     setIsLoading(false);
   };
 
   const handleRetry = () => {
-    setTeil1Answers({
-      anzahlPersonen: '',
-      davonKinder: '',
-      ort: '',
-      zahlungsweise: '',
-      reisetermin: '',
-    });
+    setTeil1Answers({ anzahlPersonen: '', davonKinder: '', ort: '', zahlungsweise: '', reisetermin: '' });
     setTeil2Answer('');
     setIsSubmitted(false);
     setScore(null);
@@ -154,17 +142,62 @@ const App: React.FC = () => {
   };
 
   const isFormComplete = useMemo(() => {
-    const teil1Complete = Object.values(teil1Answers).every(val => typeof val === 'string' && val.trim() !== '');
-    const teil2Complete = teil2Answer.trim() !== '';
-    return teil1Complete && teil2Complete;
+    return Object.values(teil1Answers).every(val => typeof val === 'string' && val.trim() !== '') && teil2Answer.trim() !== '';
   }, [teil1Answers, teil2Answer]);
+
+  const ApiKeyPrompt = () => {
+    const [localKey, setLocalKey] = useState('');
+    const handleSaveKey = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (localKey.trim()) {
+        localStorage.setItem('gemini_api_key', localKey.trim());
+        setUserApiKey(localKey.trim());
+        setIsApiReady(true);
+      }
+    };
+
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg bg-white p-8 rounded-lg shadow-xl text-center">
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">تنظیم کلید API گوگل</h1>
+            <p className="text-gray-600 mb-6" dir="rtl">
+                برای ارزیابی بخش نوشتاری، به کلید API گوگل Gemini نیاز دارید. لطفاً کلید خود را در کادر زیر وارد کنید. این کلید فقط در مرورگر شما ذخیره می‌شود و به هیچ سروری ارسال نخواهد شد.
+            </p>
+            <form onSubmit={handleSaveKey}>
+                <input
+                    type="password"
+                    value={localKey}
+                    onChange={(e) => setLocalKey(e.target.value)}
+                    placeholder="کلید API خود را اینجا وارد کنید"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 text-center focus:ring-blue-500 focus:border-blue-500"
+                    required
+                />
+                <button
+                    type="submit"
+                    className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300"
+                >
+                    ذخیره و شروع آزمون
+                </button>
+            </form>
+            <p className="mt-6 text-sm text-gray-500">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    چگونه کلید API دریافت کنم؟
+                </a>
+            </p>
+        </div>
+      </div>
+    );
+  };
+
+  if (!isApiReady) {
+    return <ApiKeyPrompt />;
+  }
 
   const PageHeader = () => (
      <div className="w-full max-w-5xl mb-8 bg-white p-8 rounded-lg shadow-lg font-sans text-gray-800 text-center">
         <p className="text-lg">Kandidatenblätter</p>
         <hr className="mt-2 border-t border-gray-800" />
         <h1 className="text-6xl font-bold text-black my-4 font-['Arial']">schreiben</h1>
-        
         <div className="text-base">
             <p><strong className="font-bold font-['Arial']">circa 20 Minuten</strong></p>
             <p>Dieser Test hat zwei Teile.</p>
