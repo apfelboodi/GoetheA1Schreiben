@@ -84,11 +84,11 @@ const App: React.FC = () => {
               },
               persianFeedback: {
                 type: Type.STRING,
-                description: "Constructive feedback in well-structured Persian paragraphs. Do NOT start with a greeting. Do NOT use asterisks (*)."
+                description: "Constructive feedback in well-structured Persian. Use newline characters (`\\n`) to separate distinct paragraphs for better readability. Do NOT start with a greeting. Do NOT use asterisks (*)."
               },
               musterbrief: {
                 type: Type.STRING,
-                description: "A standard, correct German letter that perfectly answers the prompt, serving as a model answer."
+                description: "A standard, correct German letter that perfectly answers the prompt, serving as a model answer. The letter must be properly formatted with newlines (`\\n`) for line breaks and paragraph separation (e.g., between the salutation, body paragraphs, and closing)."
               },
             },
             required: ["score", "persianFeedback", "musterbrief"],
