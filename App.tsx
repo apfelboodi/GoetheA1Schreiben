@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { GoogleGenAI } from "@google/genai";
+// FIX: Import `Type` for defining response schema.
+import { GoogleGenAI, Type } from "@google/genai";
 import Teil1 from './components/Teil1';
 import Teil2 from './components/Teil2';
 import type { Teil1Answers, Teil1Results, Score, Teil2Feedback } from './types';
@@ -53,14 +54,10 @@ const App: React.FC = () => {
     let feedback: Teil2Feedback = { persian: "خطا در تحلیل متن." };
     
     try {
-      const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
-
-      if (!apiKey) {
-        throw new Error("API_KEY environment variable not set.");
-      }
+      // FIX: API key must be from process.env.API_KEY. Hardcoded key removed.
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      const ai = new GoogleGenAI({ apiKey });
-      
+      // FIX: Simplified prompt, as JSON structure instructions are now in responseSchema.
       const combinedPrompt = `
         You are an expert Goethe A1 German exam evaluator.
         The student's text for "Schreiben Teil 2" is:
@@ -68,14 +65,37 @@ const App: React.FC = () => {
         ${teil2Answer}
         ---
         The task was: "You want to visit Dresden in August. Write to the tourist information office. - Why are you writing? - Ask for: Information about films, museums, etc. (cultural program). - Ask about: Hotel addresses?"
-        Your task is to provide a score, constructive feedback, and a model answer. The output must be a single, valid JSON object with three keys: "score", "persianFeedback", and "musterbrief".
-        1.  "score": An integer score from 0 to 10 based on official A1 criteria (task fulfillment, salutation/closing, grammar).
-        2.  "persianFeedback": Constructive feedback in well-structured Persian paragraphs. Do NOT start with a greeting. Do NOT use asterisks (*).
-        3.  "musterbrief": A standard, correct German letter that perfectly answers the prompt, serving as a model answer.
+        Your task is to provide a score, constructive feedback, and a model answer based on the student's text and the task.
       `;
 
-      const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: combinedPrompt });
-      let responseText = response.text.trim().replace(/^```json\s*/, '').replace(/```$/, '');
+      // FIX: Use responseSchema to ensure JSON output and simplify parsing.
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: combinedPrompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              score: {
+                type: Type.INTEGER,
+                description: "An integer score from 0 to 10 based on official A1 criteria (task fulfillment, salutation/closing, grammar)."
+              },
+              persianFeedback: {
+                type: Type.STRING,
+                description: "Constructive feedback in well-structured Persian paragraphs. Do NOT start with a greeting. Do NOT use asterisks (*)."
+              },
+              musterbrief: {
+                type: Type.STRING,
+                description: "A standard, correct German letter that perfectly answers the prompt, serving as a model answer."
+              },
+            },
+            required: ["score", "persianFeedback", "musterbrief"],
+          }
+        }
+      });
+      // FIX: No need to clean up markdown fences when using responseMimeType: "application/json"
+      let responseText = response.text.trim();
       
       try {
           const parsedData = JSON.parse(responseText);
@@ -96,11 +116,8 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error("Error during AI evaluation:", error);
-      if (error instanceof Error && error.message === "API_KEY environment variable not set.") {
-        feedback = { persian: "پیکربندی برنامه ناقص است. کلید API در محیط سرور تنظیم نشده است. این پیام فقط برای توسعه‌دهنده نمایش داده می‌شود." };
-      } else {
-        feedback = { persian: "خطا در ارتباط با سرویس هوش مصنوعی. این مشکل معمولاً به دلیل نامعتبر بودن کلید API یا مشکلات شبکه رخ می‌دهد." };
-      }
+      // FIX: Simplified error handling as per API key guidelines.
+      feedback = { persian: "خطا در ارتباط با سرویس هوش مصنوعی. این مشکل معمولاً به دلیل نامعتبر بودن کلید API یا مشکلات شبکه رخ می‌دهد." };
       setTeil2Feedback(feedback);
     }
 
