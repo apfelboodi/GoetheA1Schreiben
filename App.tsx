@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import Teil1 from './components/Teil1';
 import Teil2 from './components/Teil2';
@@ -21,24 +21,6 @@ const App: React.FC = () => {
   const [teil1Results, setTeil1Results] = useState<Teil1Results>({});
   const [teil2Feedback, setTeil2Feedback] = useState<Teil2Feedback | null>(null);
   const [score, setScore] = useState<Score | null>(null);
-
-  const [userApiKey, setUserApiKey] = useState<string>('');
-  const [isApiReady, setIsApiReady] = useState<boolean>(false);
-
-  useEffect(() => {
-    const envApiKey = (typeof process !== 'undefined' && process.env && process.env.API_KEY) ? process.env.API_KEY : null;
-    if (envApiKey) {
-      setUserApiKey(envApiKey);
-      setIsApiReady(true);
-      return;
-    }
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) {
-      setUserApiKey(savedKey);
-      setIsApiReady(true);
-    }
-  }, []);
-
 
   const checkApproximateAnswer = (userAnswer: string, correctValues: string[], isSubstring?: boolean) => {
     const formattedUserAnswer = userAnswer.trim().toLowerCase();
@@ -70,17 +52,13 @@ const App: React.FC = () => {
     let teil2Score = 0;
     let feedback: Teil2Feedback = { persian: "خطا در تحلیل متن." };
     
-    const apiKey = userApiKey;
-    if (!apiKey) {
-        setIsLoading(false);
-        setTeil2Feedback({ persian: "کلید API برای ارزیابی مورد نیاز است. لطفاً صفحه را رفرش کرده و کلید خود را وارد کنید." });
-        // We set score to something to trigger the results view
-        setScore({ teil1: teil1Score, teil2: 0, total: teil1Score, maxPoints: 15, percentage: Math.round((teil1Score/15)*100), passed: false });
-        setIsSubmitted(true);
-        return;
-    }
-    
     try {
+      const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
+
+      if (!apiKey) {
+        throw new Error("API_KEY environment variable not set.");
+      }
+      
       const ai = new GoogleGenAI({ apiKey });
       
       const combinedPrompt = `
@@ -118,7 +96,11 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error("Error during AI evaluation:", error);
-      feedback = { persian: "خطا در ارتباط با سرویس هوش مصنوعی. لطفاً از صحت کلید API و اتصال اینترنت خود اطمینان حاصل کنید. اگر کلید را به تازگی وارد کرده اید، ممکن است نامعتبر باشد." };
+      if (error instanceof Error && error.message === "API_KEY environment variable not set.") {
+        feedback = { persian: "پیکربندی برنامه ناقص است. کلید API در محیط سرور تنظیم نشده است. این پیام فقط برای توسعه‌دهنده نمایش داده می‌شود." };
+      } else {
+        feedback = { persian: "خطا در ارتباط با سرویس هوش مصنوعی. این مشکل معمولاً به دلیل نامعتبر بودن کلید API یا مشکلات شبکه رخ می‌دهد." };
+      }
       setTeil2Feedback(feedback);
     }
 
@@ -144,54 +126,6 @@ const App: React.FC = () => {
   const isFormComplete = useMemo(() => {
     return Object.values(teil1Answers).every(val => typeof val === 'string' && val.trim() !== '') && teil2Answer.trim() !== '';
   }, [teil1Answers, teil2Answer]);
-
-  const ApiKeyPrompt = () => {
-    const [localKey, setLocalKey] = useState('');
-    const handleSaveKey = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (localKey.trim()) {
-        localStorage.setItem('gemini_api_key', localKey.trim());
-        setUserApiKey(localKey.trim());
-        setIsApiReady(true);
-      }
-    };
-
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg bg-white p-8 rounded-lg shadow-xl text-center">
-            <h1 className="text-3xl font-bold text-gray-800 mb-4">تنظیم کلید API گوگل</h1>
-            <p className="text-gray-600 mb-6" dir="rtl">
-                برای ارزیابی بخش نوشتاری، به کلید API گوگل Gemini نیاز دارید. لطفاً کلید خود را در کادر زیر وارد کنید. این کلید فقط در مرورگر شما ذخیره می‌شود و به هیچ سروری ارسال نخواهد شد.
-            </p>
-            <form onSubmit={handleSaveKey}>
-                <input
-                    type="password"
-                    value={localKey}
-                    onChange={(e) => setLocalKey(e.target.value)}
-                    placeholder="کلید API خود را اینجا وارد کنید"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 text-center focus:ring-blue-500 focus:border-blue-500"
-                    required
-                />
-                <button
-                    type="submit"
-                    className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300"
-                >
-                    ذخیره و شروع آزمون
-                </button>
-            </form>
-            <p className="mt-6 text-sm text-gray-500">
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                    چگونه کلید API دریافت کنم؟
-                </a>
-            </p>
-        </div>
-      </div>
-    );
-  };
-
-  if (!isApiReady) {
-    return <ApiKeyPrompt />;
-  }
 
   const PageHeader = () => (
      <div className="w-full max-w-5xl mb-8 bg-white p-8 rounded-lg shadow-lg font-sans text-gray-800 text-center">
