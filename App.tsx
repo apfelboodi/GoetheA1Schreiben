@@ -54,8 +54,9 @@ const App: React.FC = () => {
     let feedback: Teil2Feedback = { persian: "خطا در تحلیل متن." };
     
     try {
-      // FIX: API key must be from process.env.API_KEY. Hardcoded key removed.
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // کلید API به صورت مستقیم در کد قرار داده شده است.
+      const apiKey = "AIzaSyD59WWJVwWpBC3Vgv83y2f6JNI6NDaaP5k";
+      const ai = new GoogleGenAI({ apiKey });
       
       // FIX: Simplified prompt, as JSON structure instructions are now in responseSchema.
       const combinedPrompt = `
