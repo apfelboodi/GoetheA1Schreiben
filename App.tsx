@@ -55,7 +55,17 @@ const App: React.FC = () => {
     let feedback: Teil2Feedback = { persian: "خطا در تحلیل متن." };
     
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      let apiKey;
+      // This check is to safely access the environment variable, which doesn't exist in a plain browser environment.
+      if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+        apiKey = process.env.API_KEY;
+      }
+
+      if (!apiKey) {
+        throw new Error("API_KEY not found.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       
       const combinedPrompt = `
         You are an expert Goethe A1 German exam evaluator.
@@ -99,8 +109,12 @@ const App: React.FC = () => {
       setTeil2Feedback(feedback);
 
     } catch (error) {
-      console.error("Error with Gemini API:", error);
-      feedback = { persian: "ارتباط با سرویس هوش مصنوعی برقرار نشد." };
+      console.error("Error during AI evaluation:", error);
+      if (error instanceof Error && error.message === "API_KEY not found.") {
+        feedback = { persian: "کلید API یافت نشد. این برنامه برای ارزیابی به کلید API گوگل نیاز دارد. هنگام دیپلوی روی Vercel، حتماً آن را به عنوان یک Environment Variable تنظیم کنید." };
+      } else {
+        feedback = { persian: "خطا در ارتباط با سرویس هوش مصنوعی. لطفاً از صحت کلید API و اتصال اینترنت خود اطمینان حاصل کنید." };
+      }
       setTeil2Feedback(feedback);
     }
 
