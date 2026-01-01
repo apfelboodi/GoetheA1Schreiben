@@ -55,7 +55,7 @@ const App: React.FC = () => {
     
     try {
       // کلید API به صورت مستقیم در کد قرار داده شده است.
-      const apiKey = "AIzaSyD59WWJVwWpBC3Vgv83y2f6JNI6NDaaP5k";
+      const apiKey = "AIzaSyCLGxGD0WGgfB7b6S6W9Ec9m38RSh_2Nic";
       const ai = new GoogleGenAI({ apiKey });
       
       // FIX: Simplified prompt, as JSON structure instructions are now in responseSchema.
