@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-// FIX: Import `Type` for defining response schema.
-import { GoogleGenAI, Type } from "@google/genai";
+// 1. Import OpenAI library instead of GoogleGenAI
+import OpenAI from 'openai';
 import Teil1 from './components/Teil1';
 import Teil2 from './components/Teil2';
 import type { Teil1Answers, Teil1Results, Score, Teil2Feedback } from './types';
@@ -54,50 +54,47 @@ const App: React.FC = () => {
     let feedback: Teil2Feedback = { persian: "خطا در تحلیل متن." };
     
     try {
-      // کلید API به صورت مستقیم در کد قرار داده شده است.
-      const apiKey = "AIzaSyCLGxGD0WGgfB7b6S6W9Ec9m38RSh_2Nic";
-      const ai = new GoogleGenAI({ apiKey });
-      
-      // FIX: Simplified prompt, as JSON structure instructions are now in responseSchema.
-      const combinedPrompt = `
-        You are an expert Goethe A1 German exam evaluator.
-        The student's text for "Schreiben Teil 2" is:
-        ---
-        ${teil2Answer}
-        ---
-        The task was: "You want to visit Dresden in August. Write to the tourist information office. - Why are you writing? - Ask for: Information about films, museums, etc. (cultural program). - Ask about: Hotel addresses?"
-        Your task is to provide a score, constructive feedback, and a model answer based on the student's text and the task.
-      `;
+      // 2. کلید API جدید OpenAI خود را اینجا قرار دهید
+      const openaiApiKey = "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"; // <--- کلید OpenAI را اینجا وارد کنید
 
-      // FIX: Use responseSchema to ensure JSON output and simplify parsing.
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: combinedPrompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              score: {
-                type: Type.INTEGER,
-                description: "An integer score from 0 to 10 based on official A1 criteria (task fulfillment, salutation/closing, grammar)."
-              },
-              persianFeedback: {
-                type: Type.STRING,
-                description: "Constructive feedback in well-structured Persian. Use newline characters (`\\n`) to separate distinct paragraphs for better readability. Do NOT start with a greeting. Do NOT use asterisks (*)."
-              },
-              musterbrief: {
-                type: Type.STRING,
-                description: "A standard, correct German letter that perfectly answers the prompt, serving as a model answer. The letter must be properly formatted with newlines (`\\n`) for line breaks and paragraph separation (e.g., between the salutation, body paragraphs, and closing)."
-              },
-            },
-            required: ["score", "persianFeedback", "musterbrief"],
-          }
-        }
-      });
-      // FIX: No need to clean up markdown fences when using responseMimeType: "application/json"
-      let responseText = response.text.trim();
+      // 3. Initialize OpenAI Client
+      // `dangerouslyAllowBrowser: true` for client-side usage is required.
+      const ai = new OpenAI({ apiKey: openaiApiKey, dangerouslyAllowBrowser: true });
       
+      const taskDescription = `The task was: "You want to visit Dresden in August. Write to the tourist information office. - Why are you writing? - Ask for: Information about films, museums, etc. (cultural program). - Ask about: Hotel addresses?"`;
+      
+      // 4. Structure the prompt for OpenAI using the 'messages' array
+      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        {
+          role: 'system',
+          content: `You are an expert Goethe A1 German exam evaluator. Your response MUST be a valid JSON object. Do not include any text outside of the JSON structure. The JSON object must have three keys: "score" (integer 0-10), "persianFeedback" (string with paragraphs separated by '\\n'), and "musterbrief" (string, a model German letter with correct formatting and '\\n' for line breaks).`
+        },
+        {
+          role: 'user',
+          content: `Please evaluate the following German text for "Schreiben Teil 2".
+            ---
+            Student's text: "${teil2Answer}"
+            ---
+            ${taskDescription}
+            ---
+            Provide your evaluation in the required JSON format.`
+        }
+      ];
+
+      // 5. Call OpenAI API and force JSON output
+      const response = await ai.chat.completions.create({
+        model: 'GPT-4o mini', // Or any other suitable model like 'gpt-3.5-turbo'
+        messages: messages,
+        response_format: { type: "json_object" },
+      });
+      
+      // 6. Extract response from the correct path
+      const responseText = response.choices[0]?.message?.content;
+      
+      if (!responseText) {
+          throw new Error("Empty response from OpenAI API.");
+      }
+
       try {
           const parsedData = JSON.parse(responseText);
           teil2Score = parsedData.score || 0;
@@ -117,7 +114,6 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error("Error during AI evaluation:", error);
-      // FIX: Simplified error handling as per API key guidelines.
       feedback = { persian: "خطا در ارتباط با سرویس هوش مصنوعی. این مشکل معمولاً به دلیل نامعتبر بودن کلید API یا مشکلات شبکه رخ می‌دهد." };
       setTeil2Feedback(feedback);
     }
