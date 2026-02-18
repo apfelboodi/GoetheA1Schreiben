@@ -59,9 +59,9 @@ const Teil1: React.FC<Teil1Props> = ({
 
 
     return (
-        <section className="mb-16">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Teil 1</h2>
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-gray-700 text-lg space-y-2 leading-snug">
+        <section className="mb-16 bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-gray-200">
+            <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-gray-200 pb-4">Teil 1</h2>
+            <div className="mt-6 text-gray-700 text-lg space-y-2 leading-snug">
                 <p>Ihre Freundin, Eva Kadavy, macht mit ihrem Mann und ihren beiden Söhnen (8 und 11 Jahre alt) Urlaub in Seeheim.</p>
                 <p>Im Reisebüro bucht sie für den nächsten Sonntag eine Busfahrt um den Bodensee.</p>
                 <p>Frau Kadavy hat keine Kreditkarte.</p>
@@ -166,10 +166,10 @@ interface Teil2Props {
 
 const Teil2: React.FC<Teil2Props> = ({ letter, setLetter }) => {
     return (
-        <section>
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Teil 2</h2>
+        <section className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-gray-200">
+            <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-gray-200 pb-4">Teil 2</h2>
             
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-gray-700 text-lg mb-8 leading-snug">
+            <div className="mt-6 text-gray-700 text-lg mb-8 leading-snug">
                 <p className="mb-4">Sie möchten im August Dresden besuchen. Schreiben Sie an die Touristeninformation:</p>
                 <ul className="list-disc list-inside space-y-1 pl-4">
                     <li>Warum schreiben Sie?</li>
@@ -192,7 +192,7 @@ const Teil2: React.FC<Teil2Props> = ({ letter, setLetter }) => {
                     value={letter}
                     onChange={(e) => setLetter(e.target.value)}
                     rows={8}
-                    className="w-full p-4 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-lg"
+                    className="w-full p-4 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-lg border-gray-300 border"
                     placeholder="Schreiben Sie hier Ihre Antwort..."
                 />
             </div>
