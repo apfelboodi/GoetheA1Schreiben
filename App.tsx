@@ -300,7 +300,12 @@ export default function App() {
             },
         });
         
-        const resultJson = JSON.parse(response.text.trim());
+        const text = response.text;
+        if (!text) {
+          throw new Error("Received an empty response from the API.");
+        }
+
+        const resultJson = JSON.parse(text.trim());
         setResult({ score: resultJson.score, feedback: resultJson.feedback });
         setTeil1Result(resultJson.teil1Feedback);
         setSampleLetter(resultJson.sampleLetter || '');
