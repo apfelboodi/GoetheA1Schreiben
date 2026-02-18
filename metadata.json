@@ -1,0 +1,5 @@
+{
+  "name": "German A1 Writing Practice",
+  "description": "An interactive web application that simulates the 'Schreiben' (Writing) section of the Goethe-Institut's Start Deutsch 1 (A1) exam. Users can practice filling out a form and writing a short, formal message based on prompts.",
+  "requestFramePermissions": []
+}
